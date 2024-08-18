@@ -15,6 +15,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
+    strategy:
+      fail-fast: false
+      matrix:
+        version: ['4.4.8', '4.5.3']
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-qemu-action@v2
@@ -32,7 +36,9 @@ jobs:
         with:
           context: ./pgpool.docker/
           file: ./pgpool.docker/Dockerfile.pgpool
+          build-args: |
+            PGPOOL_VER=${{ matrix.version }}
           push: true
           platforms: linux/amd64,linux/arm64
           tags: |
-            ${{ env.DOCKER_REPO }}:latest
+            ${{ env.DOCKER_REPO }}:${{ matrix.version }}
