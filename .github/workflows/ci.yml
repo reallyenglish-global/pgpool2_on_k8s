@@ -2,6 +2,17 @@ name: CI
 
 on:
   push:
+  workflow_dispatch:
+    inputs:
+      pgpool_version:
+        description: 'Pgpool version to build (e.g., 4.7.1)'
+        required: true
+        type: string
+      platforms:
+        description: 'Target platforms'
+        required: false
+        default: 'linux/amd64,linux/arm64'
+        type: string
 
 permissions:
   contents: write
@@ -18,7 +29,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        version: ['4.5.11', '4.6.6', '4.7.1']
+        # Only use matrix for automatic builds (push events)
+        version: ${{ github.event_name == 'push' && fromJSON('["4.5.11", "4.6.6", "4.7.1"]') || fromJSON('["manual"]') }}
+    
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-qemu-action@v3
@@ -31,14 +44,25 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Set version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "version=${{ inputs.pgpool_version }}" >> $GITHUB_OUTPUT
+            echo "platforms=${{ inputs.platforms }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=${{ matrix.version }}" >> $GITHUB_OUTPUT
+            echo "platforms=linux/amd64,linux/arm64" >> $GITHUB_OUTPUT
+          fi
+
       - name: Build and push images
         uses: docker/build-push-action@v6
         with:
           context: ./pgpool.docker/
           file: ./pgpool.docker/Dockerfile.pgpool
           build-args: |
-            PGPOOL_VER=${{ matrix.version }}
+            PGPOOL_VER=${{ steps.version.outputs.version }}
           push: true
-          platforms: linux/amd64,linux/arm64
+          platforms: ${{ steps.version.outputs.platforms }}
           tags: |
-            ${{ env.DOCKER_REPO }}:${{ matrix.version }}
+            ${{ env.DOCKER_REPO }}:${{ steps.version.outputs.version }}
