@@ -2,6 +2,9 @@ name: CI
 
 on:
   push:
+    branches:
+      - master
+  pull_request:
   workflow_dispatch:
     inputs:
       pgpool_version:
@@ -30,7 +33,7 @@ jobs:
       fail-fast: false
       matrix:
         # Only use matrix for automatic builds (push events)
-        version: ${{ github.event_name == 'push' && fromJSON('["4.5.11", "4.6.6", "4.7.1"]') || fromJSON('["manual"]') }}
+        version: ${{ (github.event_name == 'push' || github.event_name == 'pull_request') && fromJSON('["4.5.13", "4.6.8", "4.7.3"]') || fromJSON('["manual"]') }}
     
     steps:
       - uses: actions/checkout@v4
@@ -62,7 +65,7 @@ jobs:
           file: ./pgpool.docker/Dockerfile.pgpool
           build-args: |
             PGPOOL_VER=${{ steps.version.outputs.version }}
-          push: true
+          push: ${{ github.event_name != 'pull_request' }}
           platforms: ${{ steps.version.outputs.platforms }}
           tags: |
             ${{ env.DOCKER_REPO }}:${{ steps.version.outputs.version }}
